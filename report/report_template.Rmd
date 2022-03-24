@@ -1,0 +1,190 @@
+%
+\documentclass[12pt]{article}
+\usepackage{Sweave}
+\usepackage{pdflscape}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{graphicx}
+\geometry{letterpaper, portrait, margin=1in}
+\SweaveOpts{height=6,width=10,echo=FALSE}
+\setkeys{Gin}{width=6in}
+\usepackage[format=hang,font=small,labelfont=bf]{caption}
+\usepackage[dvipsnames]{xcolor}
+
+\title{SARS-CoV-2 Proficiencty Testing Analysis \protect\\[0.2in]Almond Analysis for:\protect\\"Title goes here"}
+
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+<<echo=FALSE>>=
+
+#----------------------
+# Input Files
+#----------------------
+
+library("optparse")
+
+option_list = list(
+  make_option(c("-a", "--analysis"), type="character", default="./lineage_report.csv",
+              help="analysis results file [default= %default]", metavar="character"),
+  make_option(c("-s", "--snp"), type="character", default="./output.csv",
+              help="snp results [default= %default]", metavar="character"),
+  make_option(c("-P", "--ptSample"), type="character", default="./pt-sample-combined-reads.png",
+              help="pt ampliconstats png [default= %default]", metavar="character"),
+  make_option(c("-b", "--blindSample"), type="character", default="./blind-sample-combined-reads.png",
+              help="blind ampliconstats png [default= %default]", metavar="character"),
+  make_option(c("-m", "--message"), type="character", default="",
+              help="optional conclusions text [default= %default]", metavar="character"))
+
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+seq.results.file <- opt$analysis
+seq.snp.file <- opt$snp
+pt.png <- opt$ptSample
+blind.png <- opt$blindSample
+message <- opt$message
+
+  seq.results <- read.delim(seq.results.file,header=T,sep=",",stringsAsFactors=F,
+    colClasses = c(rep("character", 13)))
+    # Cols - Sample,status,lineage,pango_version,clade,next_version,insert,del,nuc_sub,aa_sub
+  seq.snp <- read.delim(seq.snp.file, header=T,sep=",",stringsAsFactors=F,
+    colClasses = c(rep("character", 12)))
+    # Cols - isoalte,lenght,status,annotated,model,subgenera, species, num_feats, feats_not_ann,num_feat_5,num_feat_3,feat-alerts,seq_alerts
+
+#------------------------------
+# Plotting libraries
+#------------------------------
+library(ggplot2)
+library(ggsci)
+library(cowplot)
+library(grid)
+library(gridExtra)
+
+@
+\newpage
+\section{Overview}
+\setlength\floatsep{0pt}
+\setlength\intextsep{0pt}
+
+The Almond analysis report provides an analytical overview of SARS-CoV-2 (SC2) Proficiency Testing (PT) data.
+@
+\vspace{20pt}
+
+
+@
+\section{Results}
+<<echo=FALSE,results=tex>>=
+
+cat(paste("Lineage assigments are listed in Table 1. If the lineages of the Blind sample and PT sample are the same, the scientist had demonstrated proficiency in the sequencing of SARS-CoV-2 using the tested protocol. Deviations from the reference genome are listed in Table 2. If there are no deviations between the Blind and PT samples and the reference genome, this scientist demonstrates proficiency in the sequencing of SARS-CoV-2 using the tested protocol.\n", sep=""))
+@
+\vspace{20pt}
+
+@
+\subsection{Lineage Analysis}
+\begin{small}
+<<echo=FALSE,results=tex>>=
+
+cat(paste("Lineage assigments are listed in Table 1. If the lineages of the Blind sample and PT sample are the same, the scientist had demonstrated proficiency in the sequencing of SARS-CoV-2 using the tested protocol.\n", sep=""))
+@
+\vspace{20pt}
+<<label=xtable2,echo=FALSE,results=tex>>=
+
+#---------------------------
+# Table 2 - Analysis Summary
+#---------------------------
+library(xtable)
+library(stringr)
+library(dplyr)
+
+lineages <- seq.results
+lineages <- lineages %>%
+              select(taxon,lineage,scorpio_call,status)
+names(lineages)[1] <- "Sample"
+names(lineages)[2] <- "Lineage"
+names(lineages)[3] <- "Scorpio Call"
+names(lineages)[4] <- "Status"
+
+dat <- lineages
+x <- xtable(dat)
+colnames(x) <- c("Sample","Lineage","Scorpio Call","Status")
+next.table <- 1
+align(x) <- xalign(x)
+digits(x) <- xdigits(x)
+display(x) <- xdisplay(x)
+print(xtable(x, caption = "A summary of the lineages of the tested samples. The assigned lineages of the BlindComp and BlindPT samples should be the same for the scientist to pass the PT analysis.",
+  label = "tab:one"), hline.after=c(-1,0), tabular.environment = "longtable", caption.placement = "top", include.rownames=FALSE)
+next.table <- next.table + 1
+
+@
+\end{small}
+
+
+@
+\subsection{SNP Analysis}
+\begin{small}
+<<echo=FALSE,results=tex>>=
+
+cat(paste("Deviations from the reference genome are listed in Table 2. If there are no deviations between the Blind and PT samples and the reference genome, this scientist demonstrates proficiency in the sequencing of SARS-CoV-2 using the tested protocol. \n", sep=""))
+@
+\vspace{20pt}
+<<label=xtable2,echo=FALSE,results=tex>>=
+
+#---------------------------
+# Table 2 - Analysis Summary
+#---------------------------
+library(xtable)
+library(stringr)
+library(dplyr)
+
+vcf <- seq.snp
+names(vcf)[1] <- "Chromosome"
+
+dat <- vcf
+x <- xtable(dat)
+colnames(x) <- c("Chrom","Position","ID","Ref","Alt","Qual", "Filter", "Info", "Format", "Ref", "BlindComp", "BlindPT")
+next.table <- 1
+align(x) <- xalign(x)
+digits(x) <- xdigits(x)
+display(x) <- xdisplay(x)
+print(xtable(x, caption = "A summary of the in-depth nucleotide comparison. Chrom refers to the chromosome the difference was identified. Since these are closed genomes, the value for Chrom should be 1. The position where the variation was found is listed in column Position. The Ref and Alt columns show the original nucleodtide in the reference genome and the alternative nucleotide, respectively. The numerical values of columns Ref, BlindComp, and BlindPT refer to which nucleotide is present in the genome at that specific position. If the number is 0, then the Ref nucleotide is present. If the number is 1, the alternative nucleotide was found at that position in the genome. The values for BlindComp and BlindPT should be the same for the scientist to pass the PT analysis.",
+  label = "tab:one"), hline.after=c(-1,0), tabular.environment = "longtable", caption.placement = "top", include.rownames=FALSE)
+next.table <- next.table + 1
+
+@
+\end{small}
+
+
+
+@
+\subsection{Amplicon Coverage Analysis}
+\begin{small}
+<<echo=FALSE,results=tex>>=
+
+cat(paste("Below are figures of the amplicon coverage of the PT sample and Blind sample. If there are low coverages in the PT sample that match the low coverage regions of BlindC, it may be  possible that there is lower primer binding affinity in those areas (possibly due to mutations). However, if there are regions of low coverage in the PT sample that do not match the amplicon coverage of the Blind sample, the scientist may have to repeat the PT sequencing run. \n", sep=""))
+@
+\vspace{20pt}
+@
+\begin{figure}[htb]
+\centering
+  \includegraphics{pt-sample-combined-reads.png}
+  \caption{Amplicon coverage of the PT sample reads.}
+\end{figure}
+
+@
+\vspace{40pt}
+@
+\begin{figure}[htb]
+\centering
+  \includegraphics{blind-sample-combined-reads.png}
+  \caption{Amplicon coverage of the blind sample reads.}
+\end{figure}
+
+@
+\end{small}
+
+@
+\end{document}
+\end{small}
